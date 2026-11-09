@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard Financeiro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ============ 1. CORES (mexa aqui para trocar o visual inteiro) ============ */
+:root {
+  --lavanda: #C378D6;
+  --noite: #102030;
+  --lima: #00FF00;
+  --texto: #FFFFFF;
+  --texto-suave: #B4B9D0;
+  --vidro: rgba(110, 80, 225, 0.20);        /* fundo do "vidro" */
+  --borda-vidro: rgba(225, 215, 255, 0.);
+  --violeta: #5314CD;                       /* roxo mais escuro */
+  --largura-menu: 240px;
+}
+
+* { box-sizing: border-box; margin: 0; }
+body {
+  font-family: 'Sora', system-ui, sans-serif;
+  background: var(--noite);
+  color: var(--texto);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ============ 2. FUNDO COM MANCHAS DE COR ============
+   O vidro só aparece se houver algo colorido atrás dele para borrar. */
+body::before, body::after {
+  content: ""; position: fixed; border-radius: 50%; filter: blur(90px); z-index: 0; pointer-events: none;
+}
+body::before { width: 520px; height: 520px; background: var(--violeta); opacity: .65; top: -140px; left: 14%; }
+body::after  { width: 440px; height: 440px; background: var(--lima);    opacity: .30; bottom: -140px; right: 4%; }
+.mancha { position: fixed; width: 360px; height: 360px; border-radius: 50%; filter: blur(90px); background: #6A47E8; opacity: .5; top: 40%; right: 30%; z-index: 0; pointer-events: none; }
+
+/* ============ 3. O EFEITO DE VIDRO (glassmorphism) ============ */
+.vidro {
+  position: relative;
+  /* camada 1: brilho branco diagonal | camada 2: cor do vidro */
+  background: linear-gradient(135deg, rgba(255,255,255,.20), rgba(255,255,255,.03) 60%), var(--vidro);
+  border: 1px solid var(--borda-vidro);
+  backdrop-filter: blur(36px) saturate(190%);   /* borra e deixa as cores atrás mais intensas */
+  -webkit-backdrop-filter: blur(36px) saturate(190%);
+  border-radius: 24px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.6),         /* borda de luz em cima */
+    inset 0 -1px 0 rgba(255,255,255,.08),
+    0 20px 50px rgba(3,5,18,.45);               /* sombra que "descola" o vidro do fundo */
+}
+/* reflexo de luz, como em vidro de verdade */
+.vidro::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 35%);
+}
+
+/* ============ 4. MENU LATERAL DESLIZANTE ============ */
+.menu {
+  position: fixed; top: 16px; bottom: 16px; left: 16px;
+  width: var(--largura-menu); padding: 24px 16px; z-index: 10;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: transform .35s ease;      /* o "deslizar" */
+}
+.menu.fechado { transform: translateX(calc(-100% - 32px)); }
+.logo { font-weight: 700; font-size: 1.15rem; padding: 0 12px 20px; }
+.menu a {
+  color: var(--texto-suave); text-decoration: none; padding: 12px 14px;
+  border-radius: 14px; font-size: .92rem; transition: background .2s, color .2s;
+}
+.menu a:hover { background: rgba(183,161,255,.12); color: var(--texto); }
+.menu a.ativo { background: linear-gradient(135deg, #8A6BFF, var(--violeta)); color: #fff; font-weight: 600; box-shadow: 0 6px 22px rgba(80,48,200,.7), inset 0 1px 0 rgba(255,255,255,.4); }
+.menu a:focus-visible, button:focus-visible { outline: 2px solid var(--lima); outline-offset: 2px; }
+
+/* ============ 5. CONTEÚDO PRINCIPAL ============ */
+main {
+  position: relative; z-index: 1;
+  margin-left: calc(var(--largura-menu) + 48px);
+  padding: 24px 32px 48px 8px;
+  transition: margin-left .35s ease;
+}
+main.expandido { margin-left: 24px; padding-left: 24px; }
+
+.topo { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+.btn-menu {
+  width: 44px; height: 44px; font-size: 1.1rem; cursor: pointer; color: var(--texto); flex: none;
+}
+h1 { font-size: 1.5rem; }
+.topo p { color: var(--texto-suave); font-size: .88rem; margin-top: 2px; }
+
+/* Seletor de período: faixa que desliza para o lado */
+.periodos {
+  display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory;
+  padding-bottom: 6px; margin-bottom: 20px; scrollbar-width: none;
+}
+.periodos::-webkit-scrollbar { display: none; }
+.periodos button {
+  scroll-snap-align: start; flex: none; cursor: pointer; font: inherit; font-size: .85rem;
+  color: var(--texto-suave); padding: 9px 18px; border-radius: 999px;
+  background: var(--vidro); border: 1px solid var(--borda-vidro); transition: all .2s;
+}
+.periodos button.ativo { background: var(--lima); color: var(--noite); border-color: var(--lima); font-weight: 600; box-shadow: 0 0 22px rgba(199,255,94,.55); }
+
+/* ============ 6. GRADE DE CARDS ============ */
+.grade { display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; }
+.card { padding: 24px; }
+.card h2 { font-size: .95rem; font-weight: 600; color: var(--texto-suave); margin-bottom: 14px; }
+.valor { font-size: 1.9rem; font-weight: 700; }
+
+.saldo { grid-column: span 6; background: linear-gradient(135deg, #4A2BC0 0%, #7A58F0 60%, rgba(199,255,94,.65) 135%); border-color: rgba(255,255,255,.5); box-shadow: 0 18px 50px rgba(80,48,200,.6), inset 0 1px 0 rgba(255,255,255,.55); color: #fff; }
+.saldo h2, .saldo small { color: rgba(255,255,255,.8); }
+.saldo .valor { font-size: 2.8rem; }
+.saldo small { color: var(--texto-suave); display: block; margin-top: 8px; }
+.receitas, .despesas { grid-column: span 3; }
+.receitas { background: linear-gradient(160deg, rgba(199,255,94,.22), rgba(199,255,94,.04)); border-color: rgba(199,255,94,.5); }
+.receitas .valor { color: var(--lima); text-shadow: 0 0 18px rgba(199,255,94,.5); }
+.despesas { background: linear-gradient(160deg, rgba(80,48,200,.55), rgba(110,80,225,.10)); }
+.despesas .valor { color: #D6C9FF; text-shadow: 0 0 18px rgba(183,161,255,.6); }
+.evolucao { grid-column: span 8; }
+.categorias { grid-column: span 4; }
+.lancamentos { grid-column: span 12; }
+.graf { position: relative; height: 260px; }
+
+/* Lista de lançamentos */
+.item { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--borda-vidro); font-size: .92rem; }
+.item:last-child { border-bottom: 0; }
+.item span { color: var(--texto-suave); font-size: .8rem; display: block; margin-top: 2px; }
+.item .entrada { color: var(--lima); font-weight: 600; }
+.item .saida { color: var(--lavanda); font-weight: 600; }
+
+/* ============ 7. CELULAR E TABLET ============ */
+@media (max-width: 900px) {
+  .saldo { grid-column: span 12; }
+  .receitas, .despesas { grid-column: span 6; }
+  .evolucao, .categorias { grid-column: span 12; }
+  main, main.expandido { margin-left: 0; padding: 20px 16px 40px; }
+  .menu { transform: translateX(calc(-100% - 32px)); }   /* menu começa escondido */
+  .menu.aberto-mobile { transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<!-- ============ MENU ============ -->
+<div class="mancha"></div>
+<nav class="menu vidro" id="menu" aria-label="Menu principal">
+  <div class="logo">Meu Dinheiro</div>
+  <a href="#" class="ativo">Visão geral</a>
+  <a href="#">Receitas</a>
+  <a href="#">Despesas</a>
+  <a href="#">Categorias</a>
+  <a href="#">Metas</a>
+  <a href="#">Investimentos</a>
+</nav>
+
+<main id="conteudo">
+  <header class="topo">
+    <button class="btn-menu vidro" id="btnMenu" aria-label="Abrir ou fechar menu">☰</button>
+    <div>
+      <h1>Olá, Isabela</h1>
+      <p>Resumo das suas finanças</p>
+    </div>
+  </header>
+
+  <!-- Período: clique em um para atualizar o gráfico -->
+  <div class="periodos" id="periodos">
+    <button data-meses="3">3 meses</button>
+    <button data-meses="6" class="ativo">6 meses</button>
+    <button data-meses="12">12 meses</button>
+  </div>
+
+  <section class="grade">
+    <article class="card vidro saldo">
+      <h2>Saldo do mês</h2>
+      <p class="valor" id="saldo">R$ 0,00</p>
+      <small>Receitas menos despesas</small>
+    </article>
+    <article class="card vidro receitas">
+      <h2>Receitas</h2>
+      <p class="valor" id="totalReceitas">R$ 0,00</p>
+    </article>
+    <article class="card vidro despesas">
+      <h2>Despesas</h2>
+      <p class="valor" id="totalDespesas">R$ 0,00</p>
+    </article>
+
+    <article class="card vidro evolucao">
+      <h2>Receitas e despesas por mês</h2>
+      <div class="graf"><canvas id="graficoLinha"></canvas></div>
+    </article>
+    <article class="card vidro categorias">
+      <h2>Despesas por categoria</h2>
+      <div class="graf"><canvas id="graficoRosca"></canvas></div>
+    </article>
+
+    <article class="card vidro lancamentos">
+      <h2>Últimos lançamentos</h2>
+      <div id="lista"></div>
+    </article>
+  </section>
+</main>
+
+<script>
+/* ============ DADOS DE MENTIRA (na Fase 2 virão do banco) ============ */
+const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const receitasMes = [4200, 4350, 4100, 5200, 4800, 5600, 4900, 5100, 5300, 4700, 5800, 6200];
+const despesasMes = [3100, 3400, 3250, 3900, 3600, 4100, 3700, 3500, 3950, 3300, 4200, 4600];
+
+const despesasCategoria = {
+  "Moradia": 1500, "Alimentacao": 900, "Transporte": 450,
+  "Saude": 300, "Educacao": 380, "Lazer": 420, "Assinaturas": 150
+};
+
+const lancamentos = [
+  { descricao: "Salário",           categoria: "Salario",     data: "05/11/2026", valor:  4200 },
+  { descricao: "Aluguel",           categoria: "Moradia",     data: "06/11/2026", valor: -1500 },
+  { descricao: "Projeto freelancer",categoria: "Freelancer",  data: "07/11/2026", valor:  1600 },
+  { descricao: "Supermercado",      categoria: "Alimentacao", data: "07/11/2026", valor:  -380 },
+  { descricao: "Streaming",         categoria: "Assinaturas", data: "08/11/2026", valor:   -45 }
+];
+
+/* ============ FUNÇÕES ============ */
+const moeda = n => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const soma = lista => lista.reduce((total, n) => total + n, 0);
+
+// Cards: usamos o último mês da lista
+const receitaAtual = receitasMes[10], despesaAtual = despesasMes[10];
+document.getElementById("totalReceitas").textContent = moeda(receitaAtual);
+document.getElementById("totalDespesas").textContent = moeda(despesaAtual);
+document.getElementById("saldo").textContent = moeda(receitaAtual - despesaAtual);
+
+// Lista de lançamentos
+document.getElementById("lista").innerHTML = lancamentos.map(l => `
+  <div class="item">
+    <div>${l.descricao}<span>${l.categoria} · ${l.data}</span></div>
+    <div class="${l.valor > 0 ? "entrada" : "saida"}">${l.valor > 0 ? "+" : "−"} ${moeda(Math.abs(l.valor))}</div>
+  </div>`).join("");
+
+/* ============ GRÁFICOS (Chart.js) ============ */
+Chart.defaults.color = "#C9CDE0";
+Chart.defaults.font.family = "Sora, system-ui, sans-serif";
+const grade = { color: "rgba(183,161,255,.12)" };
+
+const linha = new Chart(document.getElementById("graficoLinha"), {
+  type: "line",
+  data: { labels: [], datasets: [
+    { label: "Receitas", data: [], borderColor: "#C7FF5E", backgroundColor: "rgba(199,255,94,.25)", fill: true, tension: .4 },
+    { label: "Despesas", data: [], borderColor: "#C9B8FF", backgroundColor: "rgba(183,161,255,.28)", fill: true, tension: .4 }
+  ]},
+  options: { maintainAspectRatio: false, scales: { x: { grid: grade }, y: { grid: grade } } }
+});
+
+new Chart(document.getElementById("graficoRosca"), {
+  type: "doughnut",
+  data: {
+    labels: Object.keys(despesasCategoria),
+    datasets: [{
+      data: Object.values(despesasCategoria), borderWidth: 0,
+      backgroundColor: ["#9B7BFF","#C7FF5E","#6F4DFF","#A8F03C","#D6C9FF","#E8FF9E","#5B3FE0"]
+    }]
+  },
+  options: { maintainAspectRatio: false, cutout: "68%", plugins: { legend: { position: "bottom", labels: { boxWidth: 10 } } } }
+});
+
+// Mostra só os últimos N meses no gráfico de linha
+function mostrarPeriodo(n) {
+  linha.data.labels = meses.slice(12 - n);
+  linha.data.datasets[0].data = receitasMes.slice(12 - n);
+  linha.data.datasets[1].data = despesasMes.slice(12 - n);
+  linha.update();
+}
+mostrarPeriodo(6);
+
+document.getElementById("periodos").addEventListener("click", e => {
+  const botao = e.target.closest("button");
+  if (!botao) return;
+  document.querySelectorAll("#periodos button").forEach(b => b.classList.remove("ativo"));
+  botao.classList.add("ativo");
+  mostrarPeriodo(Number(botao.dataset.meses));
+});
+
+/* ============ MENU DESLIZANTE ============ */
+const menu = document.getElementById("menu");
+const conteudo = document.getElementById("conteudo");
+document.getElementById("btnMenu").addEventListener("click", () => {
+  if (window.innerWidth <= 900) {
+    menu.classList.toggle("aberto-mobile");
+  } else {
+    menu.classList.toggle("fechado");
+    conteudo.classList.toggle("expandido");
+  }
+});
+</script>
+</body>
+</html>
