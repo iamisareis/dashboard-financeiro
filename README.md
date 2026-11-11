@@ -7,5 +7,8 @@ desenvolvimento web na prática.
 - HTML, CSS e JavaScript
 - Chart.js
 
-## Status
-Fase 1: protótipo visual com dados de exemplo.
+## Roadmap
+Fase 1: visual, 
+Fase 2: backend e banco, 
+Fase 3: login, 
+Fase 4: Docker e deploy
